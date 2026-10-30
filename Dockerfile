@@ -12,7 +12,9 @@ WORKDIR /app
 
 # TODO(step-4b): copy package.json and package-lock.json, then install deps.
 COPY app/package.json app/package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev \
+ # proxy-addr 2.0.7 (pinned by app/package-lock.json) has a CRITICAL CVE; 2.0.8 is in express's ~2.0.7 range.
+ && npm update proxy-addr --omit=dev
 
 # TODO(step-4c): copy the rest of the app source into /app.
 COPY app/ ./
@@ -23,6 +25,13 @@ COPY app/ ./
 
 # TODO(step-4d): set the runtime base image (same tag as step-4a for consistency).
 FROM node:20.11-slim
+
+# Patch CRITICAL CVEs flagged by Trivy: upgrade Debian packages (gnutls, perl),
+# and drop the bundled npm (ships a vulnerable `tar`) — runtime only needs `node`.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app
 
